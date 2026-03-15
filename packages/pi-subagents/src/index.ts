@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createCmuxTaskHandle } from "./cmux";
 import { registerSubagentCommands } from "./commands";
 import { buildInvalidModeMessage, buildInvalidModeResult, executeSubagentRun } from "./execution";
+import { appendRunHistory } from "./history";
 import { renderSubagentCall, renderSubagentResult } from "./render";
 import { inferRequestedMode, SubagentParamsSchema, type SubagentParams } from "./schema";
 
@@ -55,6 +56,14 @@ export default function (pi: ExtensionAPI) {
 
       try {
         const { summary, result } = await executeSubagentRun(params, ctx.cwd, signal, onUpdate, taskHandle);
+        appendRunHistory(pi, {
+          timestamp: Date.now(),
+          label: "subagent tool",
+          cwd: ctx.cwd,
+          params,
+          summary,
+          result,
+        });
         return {
           content: [{ type: "text", text: summary }],
           details: result,

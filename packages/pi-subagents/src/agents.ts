@@ -199,6 +199,12 @@ export function normalizeAgentDefinition(
   const model = asNonEmptyString(input.model);
   if (model) definition.model = model;
 
+  const thinking = normalizeThinking(input.thinking);
+  if (thinking) definition.thinking = thinking;
+
+  const skills = normalizeStringList(input.skills);
+  if (skills.length) definition.skills = skills;
+
   const maxSteps = normalizeMaxSteps(input.maxSteps);
   if (maxSteps !== undefined) definition.maxSteps = maxSteps;
 
@@ -370,6 +376,12 @@ function normalizeMaxSteps(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   const rounded = Math.floor(value);
   return rounded >= 1 ? rounded : undefined;
+}
+
+function normalizeThinking(value: unknown): string | undefined {
+  const thinking = asNonEmptyString(value);
+  if (!thinking) return undefined;
+  return ["off", "minimal", "low", "medium", "high", "xhigh"].includes(thinking) ? thinking : undefined;
 }
 
 function normalizeSource(value: unknown): AgentSource | undefined {

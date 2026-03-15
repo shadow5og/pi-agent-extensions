@@ -350,6 +350,7 @@ export const DEFAULT_PLANNER_AGENT: SubagentDefinition = {
   mode: "subagent",
   hidden: false,
   model: "haiku",
+  thinking: "minimal",
   systemPrompt: "Create a pragmatic implementation plan with steps, risks, and validation guidance. If the task asks for a specific reply format or an exact short answer, follow that directly instead of over-analyzing. Do not edit files.",
   tools: { type: "fixed", tools: [...READ_ONLY_TOOLS] },
   maxSteps: 6,

@@ -20,11 +20,18 @@ Pi subagent extension for delegating work to specialized child Pi runs.
   - `planner`
   - `worker`
   - `reviewer`
+- richer agent frontmatter support:
+  - `model`
+  - `thinking`
+  - `skills`
+  - `tools`
+  - `maxSteps`
 - automatic cmux integration when cmux is available:
   - status updates
   - progress updates
   - milestone logs
   - completion notifications
+- persistent session run history via `/subagent-history`
 
 ## Contents
 

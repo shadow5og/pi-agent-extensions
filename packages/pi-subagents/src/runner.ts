@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { resolveToolList, type SubagentDefinition, type UsageStats } from "./schema";
+import { buildInjectedSkillPrompt } from "./skills";
 
 export interface SubagentTranscriptEntry {
   role: "assistant" | "toolResult";
@@ -212,10 +213,13 @@ async function buildPiArgs(input: RunSingleSubagentInput): Promise<{ args: strin
     args.push("--tools", tools.join(","));
   }
 
-  if (input.agent.systemPrompt.trim()) {
+  const injectedSkillsPrompt = await buildInjectedSkillPrompt(input.agent.skills, input.cwd);
+  const combinedPrompt = [input.agent.systemPrompt.trim(), injectedSkillsPrompt.trim()].filter(Boolean).join("\n\n");
+
+  if (combinedPrompt) {
     tempDir = await mkdtemp(join(tmpdir(), "pi-subagent-"));
     const promptPath = join(tempDir, `prompt-${sanitizeFileComponent(input.agent.name)}.md`);
-    await writeFile(promptPath, input.agent.systemPrompt, { encoding: "utf8", mode: 0o600 });
+    await writeFile(promptPath, combinedPrompt, { encoding: "utf8", mode: 0o600 });
     args.push("--append-system-prompt", promptPath);
   }
 

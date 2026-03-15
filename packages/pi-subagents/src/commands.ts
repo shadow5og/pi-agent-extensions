@@ -5,6 +5,7 @@ import { discoverAgents } from "./agents";
 import { discoverChains, materializeChain, type SubagentChainDefinition } from "./chains";
 import { createCmuxTaskHandle } from "./cmux";
 import { executeSubagentRun } from "./execution";
+import { appendRunHistory, formatHistoryLabel, getRunHistory } from "./history";
 import { renderSubagentResult } from "./render";
 import type { SubagentParams, SubagentRunResult } from "./schema";
 
@@ -79,6 +80,28 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
       }
       ctx.ui.setEditorText(`/run-chain ${selected.name} `);
       ctx.ui.notify(`Inserted /run-chain ${selected.name} into the editor.`, "success");
+    },
+  });
+
+  pi.registerCommand("subagent-history", {
+    description: "Browse recent subagent runs from this session and prefill a rerun command",
+    handler: async (_args, ctx) => {
+      const history = getRunHistory(ctx);
+      if (history.length === 0) {
+        if ((ctx as any).hasUI) ctx.ui.notify("No subagent history in this session yet.", "warning");
+        else process.stdout.write("No subagent history in this session yet.\n");
+        return;
+      }
+      if (!(ctx as any).hasUI) {
+        process.stdout.write(history.slice(0, 20).map(formatHistoryLabel).join("\n") + "\n");
+        return;
+      }
+      const choice = await ctx.ui.select("Recent subagent runs", history.slice(0, 30).map(formatHistoryLabel));
+      if (!choice) return;
+      const selected = history.slice(0, 30).find((item) => formatHistoryLabel(item) === choice);
+      if (!selected) return;
+      ctx.ui.setEditorText(toEditorCommand(selected.label, selected.params));
+      ctx.ui.notify("Inserted rerun command into the editor.", "success");
     },
   });
 
@@ -177,6 +200,14 @@ async function runAndDisplay(pi: ExtensionAPI, ctx: SlashCommandHandlerContext, 
   }
   try {
     const { summary, result } = await executeSubagentRun(params, ctx.cwd, undefined, undefined, taskHandle);
+    appendRunHistory(pi, {
+      timestamp: Date.now(),
+      label,
+      cwd: ctx.cwd,
+      params,
+      summary,
+      result,
+    });
     if ((ctx as any).hasUI) {
       pi.sendMessage({
         customType: "subagent-run",
@@ -196,6 +227,20 @@ async function runAndDisplay(pi: ExtensionAPI, ctx: SlashCommandHandlerContext, 
       process.stdout.write(`${label} failed: ${message}\n`);
     }
   }
+}
+
+function toEditorCommand(label: string, params: SubagentParams): string {
+  if (params.mode === "single" || (params.agent && params.task)) {
+    return `/run ${params.agent} ${params.task}`.trim();
+  }
+  if (params.mode === "parallel" && params.tasks?.length) {
+    return `/parallel ${params.tasks.map((item) => `${item.agent} -- ${item.task}`).join(" -> ")}`;
+  }
+  if (params.mode === "chain" && params.chain?.length) {
+    if (label.startsWith("/run-chain ")) return `${label} `;
+    return `/chain ${params.chain.map((item) => `${item.agent} -- ${item.task}`).join(" -> ")}`;
+  }
+  return label;
 }
 
 function splitFirstToken(value: string): [string, string | undefined] {
