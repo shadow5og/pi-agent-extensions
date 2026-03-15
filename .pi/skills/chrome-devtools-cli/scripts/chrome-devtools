@@ -1,0 +1,2 @@
+#!/bin/sh
+exec uvx mcp2cli @chrome-devtools "$@"

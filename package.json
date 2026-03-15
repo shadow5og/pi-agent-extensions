@@ -8,5 +8,8 @@
   ],
   "scripts": {
     "test:smoke:subagents": "pi -p \"Use the subagent tool with agent explore and task 'Reply with OK monorepo smoke test.'\""
+  },
+  "dependencies": {
+    "pi-teams": "0.8.7"
   }
 }
