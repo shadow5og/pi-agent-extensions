@@ -3,6 +3,7 @@
   "files": [],
   "references": [
     { "path": "./packages/pi-subagents" },
-    { "path": "./packages/pi-mcp" }
+    { "path": "./packages/pi-mcp" },
+    { "path": "./packages/pi-skill-inline" }
   ]
 }

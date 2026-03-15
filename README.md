@@ -8,6 +8,8 @@ A local monorepo for Pi extensions.
   - OpenCode-inspired Pi subagent extension
 - `packages/pi-mcp/`
   - configurable MCP bridge extension for Pi
+- `packages/pi-skill-inline/`
+  - inline `$skill-name` expansion extension for Pi
 
 ## Workspaces
 
@@ -22,6 +24,7 @@ This repo uses npm workspaces:
 Pi auto-discovery symlinks currently point to:
 - `~/.pi/agent/extensions/pi-subagents/`
 - `~/.pi/agent/extensions/pi-mcp/`
+- `~/.pi/agent/extensions/pi-skill-inline/`
 - `~/.pi/agent/agents/`
 
 ## Current packages
@@ -36,3 +39,8 @@ Pi auto-discovery symlinks currently point to:
 - connects to stdio MCP servers
 - dynamically registers Pi tools for discovered MCP tools
 - provides commands for list/reload/add/remove
+
+### `packages/pi-skill-inline`
+- rewrites `$skill-name` tokens inline before Pi processes the prompt
+- supports multiple inline skills in one prompt
+- provides `/skills-inline` and `/insert-skill <name>`
