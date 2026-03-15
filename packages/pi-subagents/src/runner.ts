@@ -203,6 +203,10 @@ async function buildPiArgs(input: RunSingleSubagentInput): Promise<{ args: strin
     args.push("--model", input.agent.model);
   }
 
+  if (!hasThinkingSuffix(input.agent.model)) {
+    args.push("--thinking", "minimal");
+  }
+
   const tools = filterToolsForRequest(resolveToolList(input.agent), input.allowWrite, input.allowBash);
   if (tools && tools.length > 0) {
     args.push("--tools", tools.join(","));
@@ -230,6 +234,10 @@ function filterToolsForRequest(
   if (!allowWrite) next = next.filter((tool) => tool !== "write" && tool !== "edit");
   if (!allowBash) next = next.filter((tool) => tool !== "bash");
   return next;
+}
+
+function hasThinkingSuffix(model: string | undefined): boolean {
+  return Boolean(model && /:[a-z]+$/i.test(model));
 }
 
 function sanitizeFileComponent(value: string): string {

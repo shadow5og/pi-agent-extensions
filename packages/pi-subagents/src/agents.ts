@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import {
   DEFAULT_SUBAGENTS,
@@ -44,6 +44,20 @@ export function getProjectAgentsDir(cwd: string): string {
   return join(cwd, ".pi", "agents");
 }
 
+export function getProjectAgentDirs(cwd: string): string[] {
+  const dirs: string[] = [];
+  let current = resolve(cwd);
+
+  while (true) {
+    dirs.unshift(join(current, ".pi", "agents"));
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return dirs;
+}
+
 export function loadDefaultAgents(): LoadedAgentDefinition[] {
   return DEFAULT_SUBAGENTS.map((definition) => {
     const normalized = normalizeAgentDefinition(definition, {
@@ -73,7 +87,7 @@ export async function loadAgentsFromDirectory(dir: string, source: AgentSource):
     return [];
   }
 
-  const files = entries.filter((entry) => entry.endsWith(".md")).sort();
+  const files = entries.filter((entry) => entry.endsWith(".md") && !entry.endsWith(".chain.md")).sort();
   const loaded: LoadedAgentDefinition[] = [];
 
   for (const file of files) {
@@ -101,7 +115,11 @@ export async function discoverAgents(
   const groups: LoadedAgentDefinition[][] = [];
   if (includeDefaults) groups.push(loadDefaultAgents());
   if (includeUser) groups.push(await loadAgentsFromDirectory(getUserAgentsDir(), "user"));
-  if (includeProject) groups.push(await loadAgentsFromDirectory(getProjectAgentsDir(cwd), "project"));
+  if (includeProject) {
+    for (const dir of getProjectAgentDirs(cwd)) {
+      groups.push(await loadAgentsFromDirectory(dir, "project"));
+    }
+  }
 
   return mergeAgentsByName(...groups);
 }

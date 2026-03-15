@@ -327,8 +327,44 @@ export const DEFAULT_REVIEWER_AGENT: SubagentDefinition = {
   source: "extension",
 };
 
+export const DEFAULT_SCOUT_AGENT: SubagentDefinition = {
+  name: "scout",
+  description: "Fast codebase reconnaissance for targeted tasks",
+  mode: "subagent",
+  hidden: false,
+  model: "haiku",
+  systemPrompt: "Scout the codebase quickly, identify the most relevant files and conventions, and avoid editing files.",
+  tools: { type: "fixed", tools: [...READ_ONLY_TOOLS] },
+  maxSteps: 5,
+  contextMode: "fresh",
+  delegatePolicy: { type: "none" },
+  allowWrite: false,
+  allowBash: false,
+  tags: ["recon", "fast"],
+  source: "extension",
+};
+
+export const DEFAULT_PLANNER_AGENT: SubagentDefinition = {
+  name: "planner",
+  description: "Turn findings into a concrete implementation plan",
+  mode: "subagent",
+  hidden: false,
+  model: "haiku",
+  systemPrompt: "Create a pragmatic implementation plan with steps, risks, and validation guidance. If the task asks for a specific reply format or an exact short answer, follow that directly instead of over-analyzing. Do not edit files.",
+  tools: { type: "fixed", tools: [...READ_ONLY_TOOLS] },
+  maxSteps: 6,
+  contextMode: "fresh",
+  delegatePolicy: { type: "none" },
+  allowWrite: false,
+  allowBash: false,
+  tags: ["planning"],
+  source: "extension",
+};
+
 export const DEFAULT_SUBAGENTS: SubagentDefinition[] = [
   DEFAULT_EXPLORE_AGENT,
+  DEFAULT_SCOUT_AGENT,
+  DEFAULT_PLANNER_AGENT,
   DEFAULT_WORKER_AGENT,
   DEFAULT_REVIEWER_AGENT,
 ];
