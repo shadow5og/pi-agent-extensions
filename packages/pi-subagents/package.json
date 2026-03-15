@@ -1,0 +1,12 @@
+{
+  "name": "@local/pi-subagents",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Pi subagent extension",
+  "dependencies": {
+    "@mariozechner/pi-ai": "^0.58.1",
+    "@mariozechner/pi-coding-agent": "^0.58.1",
+    "@sinclair/typebox": "^0.34.41"
+  }
+}

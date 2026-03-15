@@ -1,0 +1,12 @@
+{
+  "name": "pi-agent-extensions",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test:smoke:subagents": "pi -p \"Use the subagent tool with agent explore and task 'Reply with OK monorepo smoke test.'\""
+  }
+}

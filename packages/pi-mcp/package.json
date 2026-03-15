@@ -1,0 +1,13 @@
+{
+  "name": "@local/pi-mcp",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Pi MCP bridge extension",
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.58.1",
+    "@mariozechner/pi-ai": "^0.58.1",
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "@sinclair/typebox": "^0.34.41"
+  }
+}
