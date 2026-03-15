@@ -8,11 +8,14 @@ Pi subagent extension for delegating work to specialized child Pi runs.
 - slash commands:
   - `/agents`
   - `/chains`
+  - `/inspect-agent <name>`
+  - `/inspect-chain <name>`
   - `/run <agent> <task>`
   - `/parallel agent -- task -> agent -- task`
   - `/chain agent -- task -> agent -- task`
   - `/run-chain <name> [task]`
 - reusable `.chain.md` chain definitions from user/project agent directories
+- interactive browse/inspect flows in the TUI for agents, chains, and recent history
 - project agent discovery walks up parent directories
 - built-in default agents:
   - `explore`

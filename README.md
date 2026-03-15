@@ -55,9 +55,10 @@ Pi auto-discovery symlinks currently point to:
 - child Pi-run based subagents
 - custom rendering and progress UI
 - bundled default agents: `explore`, `scout`, `planner`, `worker`, `reviewer`
-- slash commands: `/agents`, `/chains`, `/run`, `/parallel`, `/chain`, `/run-chain`, `/subagent-history`
+- slash commands: `/agents`, `/chains`, `/inspect-agent`, `/inspect-chain`, `/run`, `/parallel`, `/chain`, `/run-chain`, `/subagent-history`
 - reusable `.chain.md` chain definitions for multi-step workflows
 - richer agent frontmatter support including `thinking` and injected `skills`
+- interactive inspection flows for agents, chains, and recent run history
 - automatic cmux status/progress/log/notify integration when cmux is available
 
 ### `packages/pi-mcp`

@@ -1,30 +1,22 @@
 import type { ExtensionAPI, SlashCommandHandlerContext } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
 
-import { discoverAgents } from "./agents";
+import { discoverAgents, type LoadedAgentDefinition } from "./agents";
 import { discoverChains, materializeChain, type SubagentChainDefinition } from "./chains";
 import { createCmuxTaskHandle } from "./cmux";
 import { executeSubagentRun } from "./execution";
-import { appendRunHistory, formatHistoryLabel, getRunHistory } from "./history";
-import { renderSubagentResult } from "./render";
+import { appendRunHistory, formatHistoryLabel, getRunHistory, type HistoryEntryData } from "./history";
+import { renderAgentDetail, renderChainDetail, renderHistoryDetail, renderSubagentResult } from "./render";
 import type { SubagentParams, SubagentRunResult } from "./schema";
-
-interface CachedAgentItem {
-  name: string;
-  description: string;
-}
 
 export function registerSubagentCommands(pi: ExtensionAPI) {
   let cachedCwd = process.cwd();
-  let cachedAgents: CachedAgentItem[] = [];
+  let cachedAgents: LoadedAgentDefinition[] = [];
   let cachedChains: SubagentChainDefinition[] = [];
 
   const refreshState = async (cwd: string) => {
     cachedCwd = cwd;
-    const loaded = await discoverAgents(cwd);
-    cachedAgents = loaded
-      .map((item) => ({ name: item.definition.name, description: item.definition.description }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    cachedAgents = (await discoverAgents(cwd)).sort((a, b) => a.definition.name.localeCompare(b.definition.name));
     cachedChains = await discoverChains(cwd);
   };
 
@@ -43,39 +35,103 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
     return renderSubagentResult(details, options, theme);
   });
 
+  pi.registerMessageRenderer("subagent-agent-detail", (message, _options, theme) => {
+    return renderAgentDetail(message.details as LoadedAgentDefinition, theme);
+  });
+
+  pi.registerMessageRenderer("subagent-chain-detail", (message, _options, theme) => {
+    return renderChainDetail(message.details as SubagentChainDefinition, theme);
+  });
+
+  pi.registerMessageRenderer("subagent-history-detail", (message, _options, theme) => {
+    return renderHistoryDetail(message.details as HistoryEntryData, theme);
+  });
+
   pi.registerCommand("agents", {
-    description: "Browse discovered subagents and insert a /run command",
+    description: "Browse discovered subagents, inspect them, or insert a /run command",
     handler: async (_args, ctx) => {
       await ensureState(ctx);
       if (cachedAgents.length === 0) {
         ctx.ui.notify("No subagents discovered.", "warning");
         return;
       }
-      const choice = await ctx.ui.select("Select a subagent", cachedAgents.map((agent) => `${agent.name}${agent.description ? ` — ${agent.description}` : ""}`));
-      if (!choice) return;
-      const selected = cachedAgents.find((agent) => choice.startsWith(`${agent.name}`));
-      if (!selected) {
-        ctx.ui.notify("Could not resolve selected subagent.", "error");
+      if (!(ctx as any).hasUI) {
+        process.stdout.write(cachedAgents.map((agent) => `${agent.definition.name} — ${agent.definition.description}`).join("\n") + "\n");
         return;
       }
-      ctx.ui.setEditorText(`/run ${selected.name} `);
-      ctx.ui.notify(`Inserted /run ${selected.name} into the editor.`, "success");
+      const choice = await ctx.ui.select("Select a subagent", cachedAgents.map((agent) => formatAgentLabel(agent)));
+      if (!choice) return;
+      const selected = cachedAgents.find((agent) => formatAgentLabel(agent) === choice);
+      if (!selected) return;
+      const action = await ctx.ui.select("Subagent action", ["Run", "Inspect", "Insert /run"]);
+      if (!action) return;
+      if (action === "Inspect") {
+        pi.sendMessage({ customType: "subagent-agent-detail", content: selected.definition.name, display: true, details: selected });
+        return;
+      }
+      if (action === "Insert /run") {
+        ctx.ui.setEditorText(`/run ${selected.definition.name} `);
+        ctx.ui.notify(`Inserted /run ${selected.definition.name} into the editor.`, "success");
+        return;
+      }
+      ctx.ui.setEditorText(`/run ${selected.definition.name} `);
+      ctx.ui.notify(`Inserted /run ${selected.definition.name} into the editor.`, "success");
+    },
+  });
+
+  pi.registerCommand("inspect-agent", {
+    description: "Inspect an agent definition: /inspect-agent <name>",
+    getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
+      const items = cachedAgents.filter((agent) => agent.definition.name.startsWith(prefix)).map((agent) => ({ value: agent.definition.name, label: formatAgentLabel(agent) }));
+      return items.length ? items : null;
+    },
+    handler: async (args, ctx) => {
+      await ensureState(ctx);
+      const name = args.trim();
+      if (!name) {
+        ctx.ui.notify("Usage: /inspect-agent <name>", "warning");
+        return;
+      }
+      const selected = cachedAgents.find((agent) => agent.definition.name === name);
+      if (!selected) {
+        ctx.ui.notify(`Unknown subagent: ${name}`, "error");
+        return;
+      }
+      if ((ctx as any).hasUI) {
+        pi.sendMessage({ customType: "subagent-agent-detail", content: selected.definition.name, display: true, details: selected });
+      } else {
+        process.stdout.write(`${selected.definition.name} — ${selected.definition.description}\n`);
+        process.stdout.write(`model: ${selected.definition.model ?? "default"}${selected.definition.thinking ? `:${selected.definition.thinking}` : ""}\n`);
+        process.stdout.write(`tools: ${(selected.resolvedTools ?? []).join(", ") || "inherit"}\n`);
+      }
     },
   });
 
   pi.registerCommand("chains", {
-    description: "Browse discovered chain definitions and insert a /run-chain command",
+    description: "Browse discovered chain definitions, inspect them, or insert a /run-chain command",
     handler: async (_args, ctx) => {
       await ensureState(ctx);
       if (cachedChains.length === 0) {
         ctx.ui.notify("No chains discovered.", "warning");
         return;
       }
-      const choice = await ctx.ui.select("Select a chain", cachedChains.map((chain) => `${chain.name}${chain.description ? ` — ${chain.description}` : ""}`));
+      if (!(ctx as any).hasUI) {
+        process.stdout.write(cachedChains.map((chain) => `${chain.name}${chain.description ? ` — ${chain.description}` : ""}`).join("\n") + "\n");
+        return;
+      }
+      const choice = await ctx.ui.select("Select a chain", cachedChains.map(formatChainLabel));
       if (!choice) return;
-      const selected = cachedChains.find((chain) => choice.startsWith(`${chain.name}`));
-      if (!selected) {
-        ctx.ui.notify("Could not resolve selected chain.", "error");
+      const selected = cachedChains.find((chain) => formatChainLabel(chain) === choice);
+      if (!selected) return;
+      const action = await ctx.ui.select("Chain action", ["Run", "Inspect", "Insert /run-chain"]);
+      if (!action) return;
+      if (action === "Inspect") {
+        pi.sendMessage({ customType: "subagent-chain-detail", content: selected.name, display: true, details: selected });
+        return;
+      }
+      if (action === "Insert /run-chain") {
+        ctx.ui.setEditorText(`/run-chain ${selected.name} `);
+        ctx.ui.notify(`Inserted /run-chain ${selected.name} into the editor.`, "success");
         return;
       }
       ctx.ui.setEditorText(`/run-chain ${selected.name} `);
@@ -83,8 +139,35 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("inspect-chain", {
+    description: "Inspect a chain definition: /inspect-chain <name>",
+    getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
+      const items = cachedChains.filter((chain) => chain.name.startsWith(prefix)).map((chain) => ({ value: chain.name, label: formatChainLabel(chain) }));
+      return items.length ? items : null;
+    },
+    handler: async (args, ctx) => {
+      await ensureState(ctx);
+      const name = args.trim();
+      if (!name) {
+        ctx.ui.notify("Usage: /inspect-chain <name>", "warning");
+        return;
+      }
+      const selected = cachedChains.find((chain) => chain.name === name);
+      if (!selected) {
+        ctx.ui.notify(`Unknown chain: ${name}`, "error");
+        return;
+      }
+      if ((ctx as any).hasUI) {
+        pi.sendMessage({ customType: "subagent-chain-detail", content: selected.name, display: true, details: selected });
+      } else {
+        process.stdout.write(`${selected.name}${selected.description ? ` — ${selected.description}` : ""}\n`);
+        process.stdout.write(selected.steps.map((step, index) => `${index + 1}. ${step.agent} -- ${step.task}`).join("\n") + "\n");
+      }
+    },
+  });
+
   pi.registerCommand("subagent-history", {
-    description: "Browse recent subagent runs from this session and prefill a rerun command",
+    description: "Browse recent subagent runs from this session and prefill or inspect them",
     handler: async (_args, ctx) => {
       const history = getRunHistory(ctx);
       if (history.length === 0) {
@@ -96,10 +179,17 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
         process.stdout.write(history.slice(0, 20).map(formatHistoryLabel).join("\n") + "\n");
         return;
       }
-      const choice = await ctx.ui.select("Recent subagent runs", history.slice(0, 30).map(formatHistoryLabel));
+      const recent = history.slice(0, 30);
+      const choice = await ctx.ui.select("Recent subagent runs", recent.map(formatHistoryLabel));
       if (!choice) return;
-      const selected = history.slice(0, 30).find((item) => formatHistoryLabel(item) === choice);
+      const selected = recent.find((item) => formatHistoryLabel(item) === choice);
       if (!selected) return;
+      const action = await ctx.ui.select("History action", ["Prefill rerun", "Inspect"]);
+      if (!action) return;
+      if (action === "Inspect") {
+        pi.sendMessage({ customType: "subagent-history-detail", content: selected.summary, display: true, details: selected });
+        return;
+      }
       ctx.ui.setEditorText(toEditorCommand(selected.label, selected.params));
       ctx.ui.notify("Inserted rerun command into the editor.", "success");
     },
@@ -110,17 +200,17 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       const [first, second] = splitFirstToken(prefix);
       if (second !== undefined) return null;
-      const items = cachedAgents.filter((agent) => agent.name.startsWith(first)).map((agent) => ({ value: agent.name, label: `${agent.name}${agent.description ? ` — ${agent.description}` : ""}` }));
+      const items = cachedAgents.filter((agent) => agent.definition.name.startsWith(first)).map((agent) => ({ value: agent.definition.name, label: formatAgentLabel(agent) }));
       return items.length ? items : null;
     },
     handler: async (args, ctx) => {
       await ensureState(ctx);
       const parsed = parseRunArgs(args);
-      if (!parsed) {
+      if (!parsed || !parsed.task) {
         ctx.ui.notify("Usage: /run <agent> <task>", "warning");
         return;
       }
-      const found = cachedAgents.find((agent) => agent.name === parsed.agent);
+      const found = cachedAgents.find((agent) => agent.definition.name === parsed.agent);
       if (!found) {
         ctx.ui.notify(`Unknown subagent: ${parsed.agent}`, "error");
         return;
@@ -138,7 +228,7 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
         ctx.ui.notify("Usage: /parallel agent -- task -> agent -- task", "warning");
         return;
       }
-      const unknown = parsed.find((item) => !cachedAgents.some((agent) => agent.name === item.agent));
+      const unknown = parsed.find((item) => !cachedAgents.some((agent) => agent.definition.name === item.agent));
       if (unknown) {
         ctx.ui.notify(`Unknown subagent: ${unknown.agent}`, "error");
         return;
@@ -156,7 +246,7 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
         ctx.ui.notify("Usage: /chain agent -- task -> agent -- task", "warning");
         return;
       }
-      const unknown = parsed.find((item) => !cachedAgents.some((agent) => agent.name === item.agent));
+      const unknown = parsed.find((item) => !cachedAgents.some((agent) => agent.definition.name === item.agent));
       if (unknown) {
         ctx.ui.notify(`Unknown subagent: ${unknown.agent}`, "error");
         return;
@@ -170,7 +260,7 @@ export function registerSubagentCommands(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       const [first, second] = splitFirstToken(prefix);
       if (second !== undefined) return null;
-      const items = cachedChains.filter((chain) => chain.name.startsWith(first)).map((chain) => ({ value: chain.name, label: `${chain.name}${chain.description ? ` — ${chain.description}` : ""}` }));
+      const items = cachedChains.filter((chain) => chain.name.startsWith(first)).map((chain) => ({ value: chain.name, label: formatChainLabel(chain) }));
       return items.length ? items : null;
     },
     handler: async (args, ctx) => {
@@ -209,24 +299,24 @@ async function runAndDisplay(pi: ExtensionAPI, ctx: SlashCommandHandlerContext, 
       result,
     });
     if ((ctx as any).hasUI) {
-      pi.sendMessage({
-        customType: "subagent-run",
-        content: summary,
-        display: true,
-        details: result,
-      });
+      pi.sendMessage({ customType: "subagent-run", content: summary, display: true, details: result });
     } else {
       process.stdout.write(`${summary}\n`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown subagent error.";
     await taskHandle.finish(false, `${label} failed: ${message}`);
-    if ((ctx as any).hasUI) {
-      ctx.ui.notify(`${label} failed: ${message}`, "error");
-    } else {
-      process.stdout.write(`${label} failed: ${message}\n`);
-    }
+    if ((ctx as any).hasUI) ctx.ui.notify(`${label} failed: ${message}`, "error");
+    else process.stdout.write(`${label} failed: ${message}\n`);
   }
+}
+
+function formatAgentLabel(agent: LoadedAgentDefinition): string {
+  return `${agent.definition.name}${agent.definition.description ? ` — ${agent.definition.description}` : ""}`;
+}
+
+function formatChainLabel(chain: SubagentChainDefinition): string {
+  return `${chain.name}${chain.description ? ` — ${chain.description}` : ""}`;
 }
 
 function toEditorCommand(label: string, params: SubagentParams): string {

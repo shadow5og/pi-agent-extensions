@@ -1,5 +1,8 @@
 import { Container, Spacer, Text } from "@mariozechner/pi-tui";
 
+import type { LoadedAgentDefinition } from "./agents";
+import type { SubagentChainDefinition } from "./chains";
+import type { HistoryEntryData } from "./history";
 import { inferRequestedMode, type ChainTaskItem, type ParallelTaskItem, type SubagentParams, type SubagentRunResult, type SubagentTaskResult } from "./schema";
 
 export function renderSubagentCall(args: SubagentParams, theme: any) {
@@ -42,6 +45,50 @@ export function renderSubagentResult(result: SubagentRunResult | undefined, opti
     container.addChild(new Spacer(1));
   }
   return container;
+}
+
+export function renderAgentDetail(agent: LoadedAgentDefinition, theme: any) {
+  const c = new Container();
+  const d = agent.definition;
+  c.addChild(new Text(`${theme.fg("toolTitle", theme.bold("agent "))}${theme.fg("accent", d.name)}`, 0, 0));
+  c.addChild(new Text(theme.fg("muted", d.description), 0, 0));
+  c.addChild(new Spacer(1));
+  c.addChild(new Text(`source: ${d.source ?? agent.metadata.source}${agent.metadata.path ? ` — ${agent.metadata.path}` : ""}`, 0, 0));
+  c.addChild(new Text(`model: ${d.model ?? "default"}${d.thinking ? `:${d.thinking}` : ""}`, 0, 0));
+  c.addChild(new Text(`tools: ${(agent.resolvedTools ?? []).join(", ") || "inherit"}`, 0, 0));
+  c.addChild(new Text(`skills: ${d.skills?.join(", ") || "none"}`, 0, 0));
+  c.addChild(new Text(`writes: ${d.allowWrite ? "yes" : "no"}  bash: ${d.allowBash ? "yes" : "no"}  maxSteps: ${d.maxSteps ?? "default"}`, 0, 0));
+  if (d.tags?.length) c.addChild(new Text(`tags: ${d.tags.join(", ")}`, 0, 0));
+  c.addChild(new Spacer(1));
+  c.addChild(new Text(theme.fg("dim", truncate(d.systemPrompt.trim(), 500)), 0, 0));
+  return c;
+}
+
+export function renderChainDetail(chain: SubagentChainDefinition, theme: any) {
+  const c = new Container();
+  c.addChild(new Text(`${theme.fg("toolTitle", theme.bold("chain "))}${theme.fg("accent", chain.name)}`, 0, 0));
+  if (chain.description) c.addChild(new Text(theme.fg("muted", chain.description), 0, 0));
+  c.addChild(new Spacer(1));
+  c.addChild(new Text(`source: ${chain.source}${chain.path ? ` — ${chain.path}` : ""}`, 0, 0));
+  c.addChild(new Text(`steps: ${chain.steps.length}`, 0, 0));
+  c.addChild(new Spacer(1));
+  chain.steps.forEach((step, index) => {
+    c.addChild(new Text(`${index + 1}. ${step.agent}`, 0, 0));
+    c.addChild(new Text(theme.fg("dim", `   ${truncate(step.task, 220)}`), 0, 0));
+  });
+  return c;
+}
+
+export function renderHistoryDetail(item: HistoryEntryData, theme: any) {
+  const c = new Container();
+  c.addChild(new Text(`${theme.fg("toolTitle", theme.bold("history "))}${theme.fg("accent", item.label)}`, 0, 0));
+  c.addChild(new Text(theme.fg("muted", new Date(item.timestamp).toLocaleString()), 0, 0));
+  c.addChild(new Spacer(1));
+  c.addChild(new Text(`cwd: ${item.cwd}`, 0, 0));
+  c.addChild(new Text(`summary: ${item.summary}`, 0, 0));
+  c.addChild(new Spacer(1));
+  c.addChild(renderSubagentResult(item.result, { expanded: true }, theme));
+  return c;
 }
 
 export function statusIcon(status: SubagentTaskResult["status"] | SubagentRunResult["status"]): string {
