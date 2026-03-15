@@ -11,6 +11,28 @@ A local monorepo for Pi extensions.
 - `packages/pi-skill-inline/`
   - inline `$skill-name` expansion extension for Pi
 
+## What’s included
+
+This monorepo currently packages three practical Pi extensions:
+
+- **`pi-subagents`**
+  - a visible subagent orchestration extension for Pi
+  - supports single, parallel, and chain execution modes
+  - includes built-in `explore`, `worker`, and `reviewer` agents
+  - renders execution progress and summarized results in the Pi UI
+
+- **`pi-mcp`**
+  - a configurable MCP bridge for Pi
+  - loads MCP server definitions from project and global config files
+  - dynamically exposes discovered MCP tools inside Pi
+  - includes helper commands for listing, reloading, adding, and removing MCP servers
+
+- **`pi-skill-inline`**
+  - enables inline skill usage via `$skill-name` references inside prompts
+  - supports multiple inline skills per prompt with deduplication
+  - ignores fenced code blocks during expansion
+  - includes helper commands for listing, inserting, and picking skills interactively
+
 ## Workspaces
 
 This repo uses npm workspaces:
@@ -43,4 +65,25 @@ Pi auto-discovery symlinks currently point to:
 ### `packages/pi-skill-inline`
 - rewrites `$skill-name` tokens inline before Pi processes the prompt
 - supports multiple inline skills in one prompt
-- provides `/skills-inline` and `/insert-skill <name>`
+- provides `/skills-inline`, `/insert-skill <name>`, and `/pick-skill`
+- expands inline skills at submit time; native `$` editor autocomplete is not currently provided by Pi extension APIs
+
+## cmux-first workflow guidance
+
+This repo is also configured to encourage a cmux-first workflow when cmux is available.
+
+That means Pi should prefer to:
+- detect cmux availability via `cmux -h`, `cmux identify`, or `CMUX_*` environment variables
+- use cmux APIs for orchestration instead of ad-hoc terminal control
+- inspect the current layout before creating new panes or surfaces
+- show progress with `cmux set-status`, `cmux set-progress`, and `cmux log`
+- notify the user with `cmux notify` for milestones, approvals, long-running work, and completion
+- use cmux panes for heavy or long-running work, including work done alongside subagents
+- monitor background panes with `cmux read-screen`
+- clean up panes and sidebar state when work is done
+
+## Notes
+
+- project-level appended prompt guidance lives at `.pi/APPEND_SYSTEM.md`
+- a matching global appended prompt can be installed at `~/.pi/agent/APPEND_SYSTEM.md`
+- use `/reload` or start a new Pi session after changing prompt/context files
