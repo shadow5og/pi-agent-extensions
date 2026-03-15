@@ -10,12 +10,15 @@ Pi subagent extension for delegating work to specialized child Pi runs.
   - `/chains`
   - `/inspect-agent <name>`
   - `/inspect-chain <name>`
+  - `/favorite-agent <name>`
+  - `/favorite-chain <name>`
   - `/run <agent> <task>`
   - `/parallel agent -- task -> agent -- task`
   - `/chain agent -- task -> agent -- task`
   - `/run-chain <name> [task]`
 - reusable `.chain.md` chain definitions from user/project agent directories
 - interactive browse/inspect flows in the TUI for agents, chains, and recent history
+- pinned favorites for agents and chains, stored in `~/.pi/agent/subagent-favorites.json`
 - project agent discovery walks up parent directories
 - built-in default agents:
   - `explore`
